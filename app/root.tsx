@@ -6,12 +6,9 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
-import { useNavigate } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import SymbolSearch from "@/components/symbol-search";
-import {CardTitle} from "@/components/ui/card";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 export const links: Route.LinksFunction = () => [
@@ -33,7 +30,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <Meta />
+          <title>StocksFeed</title>
+          <link rel="icon" type="image/svg+xml" href="/candlestick.svg" />
+
+          <Meta />
         <Links />
       </head>
       <body className={"h-screen w-screen bg-gray-100 dark:bg-background-1"}>
