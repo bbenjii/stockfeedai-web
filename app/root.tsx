@@ -13,6 +13,7 @@ import "./app.css";
 import SymbolSearch from "@/components/symbol-search";
 import {CardTitle} from "@/components/ui/card";
 import Navbar from "@/components/navbar";
+import Footer from "@/components/footer";
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -36,13 +37,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className={"h-screen w-screen bg-gray-100 dark:bg-background-1"}>
-      <div>
-          <Navbar/>
-          
-          
-          <div className={"dark:bg-background-2 bg-white overflow-hidden rounded-lg p-4  h-screen lg:mx-auto w-full"}>
+      <div className={"relative"}>
+          <div className={"sticky top-0 dark:bg-background-1 z-50"}>
+              <Navbar className={"s"}/>
+          </div>
+          <div className={"dark:bg-background-2 bg-white rounded-lg p-4 lg:mx-auto w-full "}>
                   {children}
           </div>
+          <Footer/>
           
       </div>
         <ScrollRestoration />

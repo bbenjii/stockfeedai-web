@@ -10,7 +10,7 @@ import {
     SheetTrigger,
 } from "@/components/ui/sheet"
 
-export default function Navbar() {
+export default function Navbar({className=""}: { className?: string}) {
     
     const navOptions = [
         {name: "Home", href: "/"},
@@ -39,7 +39,7 @@ export default function Navbar() {
         )
     }
     return (
-        <div className={"py-1 mb-2 max-w-300 mx-auto"}>
+        <div className={"py-1 mb-2 max-w-300 mx-auto " + className }>
             <div className={"flex items-center justify-between"}>
                 {/*<Menu/>*/}
                 <div className={"lg:hidden"}>

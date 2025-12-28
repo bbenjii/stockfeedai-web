@@ -8,10 +8,11 @@ export function cn(...inputs: ClassValue[]) {
 export async function fetch_util(url="", method="GET", body=null, errorCallback=({error}:{error:any})=>{}){
     const base_url = import.meta.env.VITE_API_BASE_URL;
 
-    const base = import.meta.env.VITE_API_BASE_URL;
+    let base = import.meta.env.VITE_API_BASE_URL;
 
     if (!base) {
-        throw new Error("VITE_API_BASE_URL is missing at build time");
+        base = "https://stockfeedai-server-283151671335.us-central1.run.app/"
+        // throw new Error("VITE_API_BASE_URL is missing at build time");
     }
     const fetch_url = base_url + url;
     const request = {

@@ -79,8 +79,8 @@ export function ArticleCard({article, index}: { article: Article, index: number 
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm dark:text-gray-400 text-gray-600">
                     <a 
-                        // href={article.url}
-                        href={`/articles/${extractSlug(article.url)}`}
+                        href={article.url}
+                        // href={`/articles/${extractSlug(article.url)}`}
                         target="_blank" rel="noopener noreferrer"
                        className="flex group">
                       <span className="text-sm dark:text-gray-400 text-gray-600 group-hover:underline underline-offset-4">

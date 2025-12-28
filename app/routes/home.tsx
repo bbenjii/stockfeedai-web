@@ -45,7 +45,7 @@ export function Dashboard() {
     return (
         <div className={"relative overflow-hidden flex h-full flex-col max-w-300 mx-auto gap-5"}>
                 {/* Articles list */}
-                <div className={"grid grid-cols-1 overflow-x-hidden overflow-y-auto no-scrollbar"}>
+                <div className={"grid grid-cols-1 overflow-x-hidden"}>
                     <ArticleFeed show_filters={false}/>
                 </div>
         </div>
