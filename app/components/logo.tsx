@@ -7,7 +7,7 @@ export default function Logo() {
                 className="h-10 w-auto"
             />
             <span className="text-lg font-semibold tracking-tight text-foreground">
-                stockfeed
+                stocksfeed
                 <span className="text-muted-foreground">.ai</span>
             </span>
         </div>
