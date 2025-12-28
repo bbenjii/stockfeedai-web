@@ -15,7 +15,7 @@ export default defineConfig(({ command, mode }) => {
             reactRouter(),
         ],
         define: {
-            __APP_ENV__: JSON.stringify(env.APP_ENV),
+            VITE_API_BASE_URL: JSON.stringify(env.VITE_API_BASE_URL),
         },
         resolve: {
             alias: {
