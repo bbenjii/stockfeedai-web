@@ -39,12 +39,33 @@ export default function SymbolSearch() {
     }
     
     useEffect(() => {
-   
+        searchSymbols(search).then((res)=>{
+            setSymbols(res);
+        });
     }, []);
 
     useEffect(() => {
-        searchSymbols(search).then(setSymbols);
-    }, [search]);
+        searchSymbols(search).then((res)=>{
+            console.log(res);
+            setSymbols(res);
+        });    }, [search]);
+
+    function highlight(text: string, search: string) {
+        if (!search) return text;
+
+        const regex = new RegExp(`(${search})`, "ig");
+
+        return text.split(regex).map((part, i) =>
+            part.toLowerCase() === search.toLowerCase() ? (
+                <span key={i} className="text-green-600">
+                {part}
+            </span>
+            ) : (
+                part
+            )
+        );
+    }
+    
     return (
         <div
             ref={containerRef}
@@ -56,7 +77,7 @@ export default function SymbolSearch() {
                 }
             }}
         >
-            <Command className={"bg-transparent border  rounded-2xl"}>
+            <Command shouldFilter={false} className={"bg-transparent border rounded-2xl"}>
                 <CommandInput
                     value={search}
                     ref={inputRef}
@@ -68,7 +89,7 @@ export default function SymbolSearch() {
                     <CommandEmpty>No results found</CommandEmpty>
                     {
                         symbols.map((symbol, index) =>
-                            <CommandItem key={symbol.symbol} className={" cursor-pointer"}
+                            <CommandItem key={symbol.symbol} className={" cursor-pointer"} 
                                          onMouseDown={(e) => e.preventDefault()} // keep focus for click
                                          onSelect={() => {
                                              setSearch(symbol.symbol)
@@ -78,9 +99,8 @@ export default function SymbolSearch() {
                                          }}
                             >
                                 <div className={"flex gap-2"}>
-                                    <span>{symbol.symbol}</span>
-                                    <span>{symbol.name}</span>
-
+                                    <span>{highlight(symbol.symbol, search)}</span>
+                                    <span>{highlight(symbol.name, search)}</span>
                                 </div>
                             </CommandItem>
                         )

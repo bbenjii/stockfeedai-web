@@ -60,19 +60,10 @@ export default function Navbar({className=""}: { className?: string}) {
             <div className={"hidden lg:block"}>
                 <div className={"flex p-2 gap-4"}>
                     {navOptions.map((option) => (
-                        <a href={option.href} className={" px-4 py-2 hover:bg-background-2 rounded-2xl "}>{option.name}</a>
+                        <a href={option.href} key={option.name} className={" px-4 py-2 hover:bg-background-2 rounded-2xl "}>{option.name}</a>
                     ))}
                 </div>
             </div>
-            
-            {/*<div className={"flex h-20 p-3 border-none items-center gap-5"}>*/}
-            {/*    <a href={"/"} className={"border p-6 rounded-2xl cursor-pointer"}>*/}
-            {/*        <CardTitle>STOCKFEED.AI</CardTitle>*/}
-            {/*    </a>*/}
-            {/*    <div className={"w-50"}>*/}
-            {/*        <SymbolSearch/>*/}
-            {/*    </div>*/}
-            {/*</div>*/}
         </div>
     )
 }
