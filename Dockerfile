@@ -21,4 +21,7 @@ COPY --from=build-env /app/build /app/build
 WORKDIR /app
 EXPOSE 3000
 
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 CMD ["npm", "run", "start"]
