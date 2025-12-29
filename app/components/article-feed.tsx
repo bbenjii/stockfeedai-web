@@ -25,10 +25,10 @@ export default function ArticleFeed({symbol = null, show_filters = true} : {symb
     const [articles, setArticles] = useState<any[]>([]);
     const [filters, setFilters] = useState<Filters>({
         search: "",
-        timeRange: "24h",
+        timeRange: "7d",
         sentiment: "all",
         sector: "all",
-        onlyWithTickers: false,
+        onlyWithTickers: true,
     });
 
     const sectorOptions = useMemo(() => {
@@ -102,7 +102,7 @@ function FilterBar({filters, setFilters, sectorOptions}: {
     sectorOptions: string[]
 }) {
     return (
-        <div className="bg-gray-900/30 border border-gray-800 rounded-lg p-4">
+        <div className=" border border-gray-800 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-4">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
