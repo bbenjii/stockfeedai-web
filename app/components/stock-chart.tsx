@@ -108,19 +108,160 @@ export default function StockChart({
 
     function timeLabelFormatter(timestamp: number) {
         const date = new Date(timestamp * 1000);
-        const periodDateFormatMap: Record<string, Intl.DateTimeFormatOptions> = {
-            "1d": {hour: "2-digit", minute: "2-digit"},
-            "5d": {month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit"},
-            "1mo": {month: "short", day: "2-digit"},
-            "3mo": {month: "short", day: "2-digit"},
-            "6mo": {month: "short"},
-            "ytd": {month: "short"},
-            "1y": {month: "short"},
-            "3y": {year: "numeric"},
-            "5y": {year: "numeric"},
+
+        switch (period) {
+            case "1d":
+                return date.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                });
+            case "5d":
+                return date.getHours() >= 12
+                    ? "12:00"
+                    : date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "2-digit",
+                    });
+            case "1mo":
+                return date.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                });
+            case "3mo":
+                return date.toLocaleDateString("en-US", {
+                    month: "short",
+                });
+            case "6mo":
+                return date.toLocaleDateString("en-US", {
+                    month: "short",
+                });
+            case "ytd":
+            case "1y":
+                return date.toLocaleDateString("en-US", {
+                    month: "short",
+                });
+            case "3y":
+            case "5y":
+                return date.toLocaleDateString("en-US", {
+                    year: "numeric",
+                });
+            default:
+                return date.toLocaleDateString("en-US");
         }
-        return date.toLocaleString("en-US", periodDateFormatMap[period]);
     }
+
+    const xAxisTicks = stockHistoryData
+        ? (() => {
+            const tradingDays =
+                period === "5d"
+                    ? Array.from(
+                        new Set(
+                            stockHistoryData.map((candle) =>
+                                new Date(candle.time * 1000).toDateString()
+                            )
+                        )
+                    )
+                    : [];
+            const fiveDayMidpointSeen = new Set<string>();
+            const ticks = stockHistoryData.reduce<number[]>((acc, candle, index, candles) => {
+                const date = new Date(candle.time * 1000);
+                const dayKey = date.toDateString();
+
+                if (index === 0) {
+                    acc.push(candle.time);
+                    return acc;
+                }
+
+                const previousDate = new Date(candles[index - 1].time * 1000);
+
+                switch (period) {
+                    case "1d": {
+                        const hour = date.getHours();
+                        const previousHour = previousDate.getHours();
+                        const markerHours = new Set([9, 12, 15]);
+
+                        if (markerHours.has(hour) && hour !== previousHour) {
+                            acc.push(candle.time);
+                        }
+                        break;
+                    }
+                    case "5d":
+                        if (date.toDateString() !== previousDate.toDateString()) {
+                            acc.push(candle.time);
+                            break;
+                        }
+
+                        if (
+                            tradingDays.length > 2 &&
+                            dayKey !== tradingDays[0] &&
+                            dayKey !== tradingDays[tradingDays.length - 1] &&
+                            date.getHours() >= 12 &&
+                            !fiveDayMidpointSeen.has(dayKey)
+                        ) {
+                            acc.push(candle.time);
+                            fiveDayMidpointSeen.add(dayKey);
+                        }
+                        break;
+                    case "1mo":
+                        if (
+                            date.getDate() !== previousDate.getDate() &&
+                            [1, 8, 15, 22].includes(date.getDate())
+                        ) {
+                            acc.push(candle.time);
+                        }
+                        break;
+                    case "3mo":
+                    case "6mo":
+                    case "ytd":
+                    case "1y":
+                        if (
+                            date.getMonth() !== previousDate.getMonth() ||
+                            date.getFullYear() !== previousDate.getFullYear()
+                        ) {
+                            if (
+                                period === "1y" &&
+                                ![0, 3, 6, 9].includes(date.getMonth())
+                            ) {
+                                break;
+                            }
+
+                            if (
+                                period === "ytd" &&
+                                date.getMonth() !== 0 &&
+                                date.getMonth() % 2 !== 0
+                            ) {
+                                break;
+                            }
+
+                            acc.push(candle.time);
+                        }
+                        break;
+                    case "3y":
+                    case "5y":
+                        if (date.getFullYear() !== previousDate.getFullYear()) {
+                            acc.push(candle.time);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+                return acc;
+            }, []);
+
+            const lastTimestamp = stockHistoryData[stockHistoryData.length - 1]?.time;
+
+            if (
+                period !== "5d" &&
+                typeof lastTimestamp === "number" &&
+                ticks[ticks.length - 1] !== lastTimestamp
+            ) {
+                ticks.push(lastTimestamp);
+            }
+
+            return ticks;
+        })()
+        : undefined;
 
     function tooltipDateFormatter(timestamp: number) {
         const date = new Date(timestamp * 1000);
@@ -229,6 +370,7 @@ export default function StockChart({
                     {
                         stockHistoryData && stockHistoryData.length > 0 && tickerInfo ?
                             <LineChart
+                                key={`${symbol}-${period}`}
                                 accessibilityLayer
                                 data={stockHistoryData}
                                 margin={{
@@ -239,13 +381,12 @@ export default function StockChart({
                                 <CartesianGrid vertical={false}/>
                                 <XAxis
                                     padding={{left: 0, right: 0}}
-
                                     dataKey={'time'}
+                                    ticks={xAxisTicks}
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={8}
                                     interval="preserveStartEnd"
-
                                     width={0}
                                     tickFormatter={timeLabelFormatter}
                                 />
