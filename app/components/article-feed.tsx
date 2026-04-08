@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {Input} from "@/components/ui/input";
 import {ArticleCard} from "@/components/article";
 import {Skeleton} from "@/components/ui/skeleton"
+import {Button} from "@/components/ui/button";
 import {
     DEFAULT_ARTICLE_FILTERS,
     getArticles,
@@ -23,7 +24,11 @@ export default function ArticleFeed({
     const [filters, setFilters] = useState<ArticleFilters>(DEFAULT_ARTICLE_FILTERS);
     const [isLoading, setIsLoading] = useState(initialArticles.length === 0);
     const [error, setError] = useState<string | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
     const hasHydratedInitialData = useRef(initialArticles.length > 0);
+    const hasRenderedContent = articles.length > 0;
+    const isInitialLoading = isLoading && !hasRenderedContent;
+    const isRefreshing = isLoading && hasRenderedContent;
 
     const sectorOptions = useMemo(() => {
         const set = new Set<string>();
@@ -74,7 +79,7 @@ export default function ArticleFeed({
         return () => {
             cancelled = true;
         };
-    }, [symbol]);
+    }, [symbol, refreshKey]);
 
     useEffect(() => {
         let cancelled = false;
@@ -110,7 +115,7 @@ export default function ArticleFeed({
             cancelled = true;
             clearTimeout(t);
         };
-    }, [filters, symbol]);
+    }, [filters, symbol, refreshKey]);
 
 
     return (
@@ -122,10 +127,17 @@ export default function ArticleFeed({
 
             {/* Articles list */}
 
-            {error ? (
-                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-gray-200">
-                    {error}
+            {isRefreshing ? (
+                <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-400">
+                    Updating articles…
                 </div>
+            ) : null}
+
+            {error && !hasRenderedContent ? (
+                <FeedErrorState
+                    message={error}
+                    onRetry={() => setRefreshKey((value) => value + 1)}
+                />
             ) : null}
 
             {articles.length > 0 ? (
@@ -134,16 +146,71 @@ export default function ArticleFeed({
                         <ArticleCard key={article.url ?? index} index={index} article={article}/>
                     );
                 })
-            ) : isLoading ? (
-                <Skeleton className={"w-full h-25 bg-background-1"}/>
+            ) : isInitialLoading ? (
+                <FeedLoadingState />
+            ) : error ? (
+                <FeedErrorState
+                    message={error}
+                    onRetry={() => setRefreshKey((value) => value + 1)}
+                />
             ) : (
-                <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-gray-300">
-                    No articles matched the current filters.
-                </div>
+                <FeedEmptyState filters={filters} symbol={symbol} />
             )}
 
         </div>
     )
+}
+
+function FeedLoadingState() {
+    return (
+        <div className="flex flex-col gap-4">
+            {Array.from({length: 3}).map((_, index) => (
+                <div key={index} className="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <Skeleton className="mb-3 h-4 w-20 bg-background-1" />
+                    <Skeleton className="mb-2 h-5 w-3/4 bg-background-1" />
+                    <Skeleton className="h-4 w-1/2 bg-background-1" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function FeedEmptyState({filters, symbol}: {filters: ArticleFilters; symbol?: string | null}) {
+    const hasActiveFilters =
+        Boolean(filters.search.trim()) ||
+        filters.timeRange !== DEFAULT_ARTICLE_FILTERS.timeRange ||
+        filters.sentiment !== DEFAULT_ARTICLE_FILTERS.sentiment ||
+        filters.sector !== DEFAULT_ARTICLE_FILTERS.sector ||
+        filters.onlyWithTickers !== DEFAULT_ARTICLE_FILTERS.onlyWithTickers;
+
+    return (
+        <div className="rounded-lg border border-white/10 bg-white/5 p-5 text-gray-300">
+            <p className="font-medium text-white">
+                {symbol ? `No recent articles found for ${symbol}.` : "No articles matched the current filters."}
+            </p>
+            <p className="mt-2 text-sm text-gray-400">
+                {hasActiveFilters
+                    ? "Try widening the time range or removing some filters."
+                    : "New stories will appear here once the backend returns matching coverage."}
+            </p>
+        </div>
+    );
+}
+
+function FeedErrorState({message, onRetry}: {message: string; onRetry: () => void}) {
+    return (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-5 text-gray-200">
+            <p className="font-medium text-white">Unable to load articles.</p>
+            <p className="mt-2 text-sm text-gray-300">{message}</p>
+            <Button
+                onClick={onRetry}
+                className="mt-4 rounded-2xl bg-white text-black hover:bg-gray-200"
+                type="button"
+            >
+                Try again
+            </Button>
+        </div>
+    );
 }
 
 

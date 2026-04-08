@@ -65,12 +65,14 @@ export default function StockChart({
     const [period, setPeriod] = useState<StockPeriod>(defaultPeriod);
     const [tickerInfo, setTickerInfo] = useState(initialHistory?.ticker ?? null);
     const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(!initialHistory);
 
     useEffect(() => {
         setStockHistoryData(initialHistory?.candles ?? null);
         setTickerInfo(initialHistory?.ticker ?? null);
         setPeriod(defaultPeriod);
         setError(null);
+        setIsLoading(!initialHistory);
     }, [defaultPeriod, initialHistory, symbol]);
     
     useEffect(() => {
@@ -79,6 +81,7 @@ export default function StockChart({
         }
 
         let cancelled = false;
+        setIsLoading(true);
 
         getStockHistory(symbol, {period})
             .then((res) => {
@@ -90,6 +93,10 @@ export default function StockChart({
             .catch((error) => {
                 if (cancelled) return;
                 setError(error instanceof Error ? error.message : "Failed to load stock history");
+            })
+            .finally(() => {
+                if (cancelled) return;
+                setIsLoading(false);
             });
 
         return () => {
@@ -179,12 +186,17 @@ export default function StockChart({
             <CardContent className={"p-0"}>
                 {error ? (
                     <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-gray-200">
-                        {error}
+                        Unable to refresh chart data. {error}
+                    </div>
+                ) : null}
+                {!error && isLoading && stockHistoryData ? (
+                    <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-gray-400">
+                        Updating chart…
                     </div>
                 ) : null}
                 <ChartContainer config={chartConfig} className={"h-[250px] w-full "}>
                     {
-                        stockHistoryData && tickerInfo ?
+                        stockHistoryData && stockHistoryData.length > 0 && tickerInfo ?
                             <LineChart
                                 accessibilityLayer
                                 data={stockHistoryData}
@@ -229,8 +241,13 @@ export default function StockChart({
 
                                 />
                             </LineChart>
-                            :
+                            : isLoading ?
                             <Skeleton className={"w-full h-full bg-background-1"}/>
+                            : (
+                                <div className="flex h-full items-center justify-center rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm text-gray-400">
+                                    No chart data is available for this symbol and period.
+                                </div>
+                            )
                     }
 
                 </ChartContainer>

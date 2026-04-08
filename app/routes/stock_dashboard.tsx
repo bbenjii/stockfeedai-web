@@ -9,6 +9,8 @@ import {
 } from "@/lib/api";
 import type {Route} from "./+types/stock_dashboard";
 import type {Article} from "@/components/article";
+import {Button} from "@/components/ui/button";
+import {isRouteErrorResponse, Link, useRouteError} from "react-router";
 
 const DEFAULT_PERIOD: StockPeriod = "5d";
 
@@ -55,4 +57,36 @@ export default function StockDashboard({loaderData}: Route.ComponentProps) {
             </div>
         </div>
     )
+}
+
+export function ErrorBoundary() {
+    const error = useRouteError();
+
+    let title = "Unable to load stock page";
+    let details = "Something went wrong while fetching this symbol.";
+
+    if (isRouteErrorResponse(error)) {
+        if (error.status === 404) {
+            title = "Symbol not found";
+            details = "This ticker is unavailable or the backend could not find matching market data.";
+        } else {
+            details = error.statusText || details;
+        }
+    } else if (error instanceof Error) {
+        details = error.message;
+    }
+
+    return (
+        <div className="relative overflow-hidden flex h-full flex-col max-w-300 mx-auto gap-5">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-6 text-gray-200">
+                <h1 className="text-xl font-semibold text-white">{title}</h1>
+                <p className="mt-2 text-sm text-gray-300">{details}</p>
+                <div className="mt-5 flex gap-3">
+                    <Button asChild className="rounded-2xl bg-white text-black hover:bg-gray-200">
+                        <Link to="/">Back to feed</Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
 }
