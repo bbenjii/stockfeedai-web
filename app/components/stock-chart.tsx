@@ -32,7 +32,7 @@ export const description = "A linear line chart"
 
 
 const chartConfig = {
-    close: {
+    Close: {
         label: "Close Price ($)",
         color: "var(--chart-1)",
     },
@@ -73,6 +73,7 @@ export default function StockChart({
         setPeriod(defaultPeriod);
         setError(null);
         setIsLoading(!initialHistory);
+        console.log("initialHistory", initialHistory);
     }, [defaultPeriod, initialHistory, symbol]);
     
     useEffect(() => {
@@ -86,6 +87,7 @@ export default function StockChart({
         getStockHistory(symbol, {period})
             .then((res) => {
                 if (cancelled) return;
+                console.log(res);
                 setStockHistoryData(res.candles);
                 setTickerInfo(res.ticker);
                 setError(null);
@@ -118,6 +120,35 @@ export default function StockChart({
             "5y": {year: "numeric"},
         }
         return date.toLocaleString("en-US", periodDateFormatMap[period]);
+    }
+
+    function tooltipDateFormatter(timestamp: number) {
+        const date = new Date(timestamp * 1000);
+        const tooltipDateFormatMap: Record<string, Intl.DateTimeFormatOptions> = {
+            "1d": {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            },
+            "5d": {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            },
+            "1mo": {month: "short", day: "2-digit", year: "numeric"},
+            "3mo": {month: "short", day: "2-digit", year: "numeric"},
+            "6mo": {month: "short", day: "2-digit", year: "numeric"},
+            "ytd": {month: "short", day: "2-digit", year: "numeric"},
+            "1y": {month: "short", day: "2-digit", year: "numeric"},
+            "3y": {month: "short", day: "2-digit", year: "numeric"},
+            "5y": {month: "short", day: "2-digit", year: "numeric"},
+        }
+
+        return date.toLocaleString("en-US", tooltipDateFormatMap[period]);
     }
 
     return (
@@ -230,7 +261,28 @@ export default function StockChart({
                                 />
                                 <ChartTooltip
                                     cursor={true}
-                                    content={<ChartTooltipContent hideLabel/>}
+                                    content={
+                                        <ChartTooltipContent
+                                            labelFormatter={(_, payload) => {
+                                                const timestamp = payload?.[0]?.payload?.time;
+
+                                                return typeof timestamp === "number"
+                                                    ? tooltipDateFormatter(timestamp)
+                                                    : "";
+                                            }}
+                                            formatter={(value) => {
+                                                const numericValue =
+                                                    typeof value === "number" ? value : Number(value);
+
+                                                return Number.isFinite(numericValue)
+                                                    ? numericValue.toLocaleString("en-US", {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                    })
+                                                    : String(value);
+                                            }}
+                                        />
+                                    }
                                 />
                                 <Line
                                     dataKey="Close"
