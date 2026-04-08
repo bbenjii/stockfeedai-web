@@ -1,6 +1,4 @@
-import {TrendingUp} from "lucide-react"
 import {CartesianGrid, Line, LineChart, XAxis, YAxis} from "recharts"
-import {ButtonGroup} from "@/components/ui/button-group"
 import {
     Select,
     SelectContent,
@@ -13,10 +11,9 @@ import {
 import {Skeleton} from "@/components/ui/skeleton"
 
 import {
-    Card, CardAction,
+    Card,
     CardContent,
     CardDescription,
-    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -28,8 +25,8 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart"
 import {useEffect, useState} from "react";
-import {fetch_util} from "@/lib/utils";
 import {Button} from "@/components/ui/button";
+import {getStockHistory, type StockHistory, type StockPeriod} from "@/lib/api";
 
 export const description = "A linear line chart"
 
@@ -51,22 +48,54 @@ const periodOptions = [
     {label: "1Y", value: "1y"},
     {label: "3Y", value: "3y"},
     {label: "5Y", value: "5y"},
-]
+];
 
 
-export default function StockChart({symbol}: { symbol: string }) {
+export default function StockChart({
+    symbol,
+    defaultPeriod = "5d",
+    initialHistory,
+}: {
+    symbol: string,
+    defaultPeriod?: StockPeriod,
+    initialHistory?: StockHistory,
+}) {
 
-    const [stockHistoryData, setStockHistoryData] = useState<Record<string, any>[] | null>(null);
-    const [period, setPeriod] = useState(periodOptions[1].value);
-    const [tickerInfo, setTickerInfo] = useState<Record<string, any> | null>(null);
+    const [stockHistoryData, setStockHistoryData] = useState(initialHistory?.candles ?? null);
+    const [period, setPeriod] = useState<StockPeriod>(defaultPeriod);
+    const [tickerInfo, setTickerInfo] = useState(initialHistory?.ticker ?? null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setStockHistoryData(initialHistory?.candles ?? null);
+        setTickerInfo(initialHistory?.ticker ?? null);
+        setPeriod(defaultPeriod);
+        setError(null);
+    }, [defaultPeriod, initialHistory, symbol]);
     
     useEffect(() => {
-        getStockHistory(symbol).then(res => {
-            setStockHistoryData(res.candles);
-            setTickerInfo(res.ticker)
-        });
+        if (initialHistory && period === defaultPeriod) {
+            return;
+        }
 
-    }, [symbol, period])
+        let cancelled = false;
+
+        getStockHistory(symbol, {period})
+            .then((res) => {
+                if (cancelled) return;
+                setStockHistoryData(res.candles);
+                setTickerInfo(res.ticker);
+                setError(null);
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                setError(error instanceof Error ? error.message : "Failed to load stock history");
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [defaultPeriod, initialHistory, period, symbol]);
 
     function timeLabelFormatter(timestamp: number) {
         const date = new Date(timestamp * 1000);
@@ -82,16 +111,6 @@ export default function StockChart({symbol}: { symbol: string }) {
             "5y": {year: "numeric"},
         }
         return date.toLocaleString("en-US", periodDateFormatMap[period]);
-    }
-
-    async function getStockHistory(symbol: string) {
-        const params = new URLSearchParams();
-
-        if (period) params.set("period", period);
-
-        const url = `/stock/${symbol}/history?${params.toString()}`;
-        const result = await fetch_util(url);
-        return result.history ?? [];
     }
 
     return (
@@ -158,6 +177,11 @@ export default function StockChart({symbol}: { symbol: string }) {
 
             </CardHeader>
             <CardContent className={"p-0"}>
+                {error ? (
+                    <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-gray-200">
+                        {error}
+                    </div>
+                ) : null}
                 <ChartContainer config={chartConfig} className={"h-[250px] w-full "}>
                     {
                         stockHistoryData && tickerInfo ?
@@ -212,7 +236,7 @@ export default function StockChart({symbol}: { symbol: string }) {
                 </ChartContainer>
                 {/* Mobile Period Select */}
                 <div className={"flex gap-1 py-4 lg:hidden"}>
-                    <Select value={period} onValueChange={setPeriod}>
+                    <Select value={period} onValueChange={(value) => setPeriod(value as StockPeriod)}>
                         <SelectTrigger className="w-20 rounded-2xl">
                             <SelectValue placeholder="Select a Period"/>
                         </SelectTrigger>
@@ -235,7 +259,7 @@ export default function StockChart({symbol}: { symbol: string }) {
                 <div className={"hidden gap-1 py-4 lg:flex"}>
                     {
                         periodOptions.map(option => (
-                            <Button key={option.value} onClick={() => setPeriod(option.value)}
+                            <Button key={option.value} onClick={() => setPeriod(option.value as StockPeriod)}
                                     className={`bg-transparent w-13 rounded-2xl hover:dark:bg-transparent hover:border-gray-400 dark:text-white border  ${option.value === period && "border-green-500"}`}>
                                 {option.label}
                             </Button>

@@ -4,51 +4,58 @@ import { useNavigate } from "react-router";
 import {
     Command,
     CommandEmpty,
-    CommandGroup,
     CommandInput,
     CommandItem,
     CommandList,
-    CommandSeparator,
-    CommandShortcut,
 } from "@/components/ui/command"
-import {CardTitle} from "@/components/ui/card";
-import {fetch_util} from "@/lib/utils";
+import {searchStockSymbols} from "@/lib/api";
 
 
 export default function SymbolSearch() {
     const [search, setSearch] = useState("");
     const [symbols, setSymbols] = useState<Record<string, any>[]>([]);
-    const [searchCache, setSearchCache] = useState<Record<string, any>>({});
+    const [searchCache, setSearchCache] = useState<Record<string, Record<string, any>[]>>({});
     const [open, setOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null);
 
     const navigate = useNavigate();
 
-    async function searchSymbols(search : string) {
-        const params = new URLSearchParams();
-
-        if (search.trim()) params.set("search", search.trim());
-        
-        const url = `/stock/symbols?${params.toString()}`;
-        if (searchCache[search]) return searchCache[search];
-        
-        const result = await fetch_util(url);
-        setSearchCache({...searchCache, [search]: result.symbols ?? []})
-        return result.symbols ?? [];
-    }
-    
     useEffect(() => {
-        searchSymbols(search).then((res)=>{
-            setSymbols(res);
-        });
-    }, []);
+        const trimmedSearch = search.trim();
 
-    useEffect(() => {
-        searchSymbols(search).then((res)=>{
-            console.log(res);
-            setSymbols(res);
-        });    }, [search]);
+        if (trimmedSearch.length < 1) {
+            setSymbols([]);
+            return;
+        }
+
+        if (searchCache[trimmedSearch]) {
+            setSymbols(searchCache[trimmedSearch]);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => {
+            searchStockSymbols(trimmedSearch, controller.signal)
+                .then((results) => {
+                    setSymbols(results as Record<string, any>[]);
+                    setSearchCache((currentCache) => ({
+                        ...currentCache,
+                        [trimmedSearch]: results as Record<string, any>[],
+                    }));
+                })
+                .catch((error) => {
+                    if (controller.signal.aborted) return;
+                    console.error(error);
+                    setSymbols([]);
+                });
+        }, 250);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [search, searchCache]);
 
     function highlight(text: string, search: string) {
         if (!search) return text;
@@ -81,7 +88,10 @@ export default function SymbolSearch() {
                 <CommandInput
                     value={search}
                     ref={inputRef}
-                    onValueChange={setSearch}
+                    onValueChange={(value) => {
+                        setSearch(value)
+                        setOpen(Boolean(value.trim()))
+                    }}
                     className={"text-base"}
                     placeholder="Search symbol or company name..."/>
 

@@ -1,35 +1,29 @@
-import {useEffect, useMemo, useState} from "react";
-import {fetch_util} from "@/lib/utils";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {Input} from "@/components/ui/input";
-import {NavLink} from "react-router";
 import {ArticleCard} from "@/components/article";
 import {Skeleton} from "@/components/ui/skeleton"
-
-type Filters = {
-    search: string;
-    timeRange: "1h" | "4h" | "24h" | "7d";
-    sentiment: "all" | "positive" | "neutral" | "negative";
-    sector: "all" | string;
-    onlyWithTickers: boolean;
-};
-
-function hoursFromRange(r: Filters["timeRange"]) {
-    if (r === "1h") return 1;
-    if (r === "4h") return 4;
-    if (r === "24h") return 24;
-    return 24 * 7;
-}
+import {
+    DEFAULT_ARTICLE_FILTERS,
+    getArticles,
+    type ArticleFilters,
+} from "@/lib/api";
+import type {Article} from "@/components/article";
 
 
-export default function ArticleFeed({symbol = null, show_filters = true} : {symbol?: string | null, show_filters?: boolean}) {
-    const [articles, setArticles] = useState<any[]>([]);
-    const [filters, setFilters] = useState<Filters>({
-        search: "",
-        timeRange: "7d",
-        sentiment: "all",
-        sector: "all",
-        onlyWithTickers: true,
-    });
+export default function ArticleFeed({
+    symbol = null,
+    show_filters = true,
+    initialArticles = [],
+} : {
+    symbol?: string | null,
+    show_filters?: boolean,
+    initialArticles?: Article[],
+}) {
+    const [articles, setArticles] = useState<Article[]>(initialArticles);
+    const [filters, setFilters] = useState<ArticleFilters>(DEFAULT_ARTICLE_FILTERS);
+    const [isLoading, setIsLoading] = useState(initialArticles.length === 0);
+    const [error, setError] = useState<string | null>(null);
+    const hasHydratedInitialData = useRef(initialArticles.length > 0);
 
     const sectorOptions = useMemo(() => {
         const set = new Set<string>();
@@ -40,34 +34,83 @@ export default function ArticleFeed({symbol = null, show_filters = true} : {symb
     }, [articles]);
 
 
-    async function getArticles(f: Filters) {
-        const params = new URLSearchParams();
-
-        if (f.search.trim()) params.set("search", f.search.trim());
-        if (f.sentiment !== "all") params.set("sentiment", f.sentiment);
-        if (f.sector !== "all") params.set("sectors", f.sector); // server expects comma-separated
-        if (f.onlyWithTickers) params.set("only_with_tickers", "true");
-        params.set("hours", String(hoursFromRange(f.timeRange)));
-        params.set("limit", "100");
-
-        if (symbol) params.set("tickers", symbol);
-        const url = `/articles?${params.toString()}`;
-        const result = await fetch_util(url);
-        return result.articles ?? [];
-    }
-
-    // initial load
     useEffect(() => {
-        getArticles(filters).then(setArticles);
+        setArticles(initialArticles);
+        setIsLoading(initialArticles.length === 0);
+        setError(null);
+        hasHydratedInitialData.current = initialArticles.length > 0;
+    }, [initialArticles]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const run = async () => {
+            if (hasHydratedInitialData.current) {
+                hasHydratedInitialData.current = false;
+                return;
+            }
+
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const nextArticles = await getArticles(filters, {symbol});
+                if (!cancelled) {
+                    setArticles(nextArticles as Article[]);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setError(error instanceof Error ? error.message : "Failed to load articles");
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void run();
+
+        return () => {
+            cancelled = true;
+        };
     }, [symbol]);
 
-    // debounce filters
     useEffect(() => {
+        let cancelled = false;
         const t = setTimeout(() => {
-            getArticles(filters).then(setArticles);
+            if (hasHydratedInitialData.current) {
+                hasHydratedInitialData.current = false;
+                setIsLoading(false);
+                return;
+            }
+
+            setIsLoading(true);
+            setError(null);
+
+            getArticles(filters, {symbol})
+                .then((nextArticles) => {
+                    if (!cancelled) {
+                        setArticles(nextArticles as Article[]);
+                    }
+                })
+                .catch((error) => {
+                    if (!cancelled) {
+                        setError(error instanceof Error ? error.message : "Failed to load articles");
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setIsLoading(false);
+                    }
+                });
         }, 300);
-        return () => clearTimeout(t);
-    }, [filters]);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(t);
+        };
+    }, [filters, symbol]);
 
 
     return (
@@ -79,17 +122,25 @@ export default function ArticleFeed({symbol = null, show_filters = true} : {symb
 
             {/* Articles list */}
 
-            {
-                articles.length > 0 ?
-                    articles?.map((article, index) => {
-                        return (
-                            <ArticleCard key={article.url ?? index} index={index} article={article}/>
-                        );
-                    })
-                    :
-                    <Skeleton className={"w-full h-25 bg-background-1"}/>
-            }
-            
+            {error ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-gray-200">
+                    {error}
+                </div>
+            ) : null}
+
+            {articles.length > 0 ? (
+                articles.map((article, index) => {
+                    return (
+                        <ArticleCard key={article.url ?? index} index={index} article={article}/>
+                    );
+                })
+            ) : isLoading ? (
+                <Skeleton className={"w-full h-25 bg-background-1"}/>
+            ) : (
+                <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-gray-300">
+                    No articles matched the current filters.
+                </div>
+            )}
 
         </div>
     )
@@ -97,8 +148,8 @@ export default function ArticleFeed({symbol = null, show_filters = true} : {symb
 
 
 function FilterBar({filters, setFilters, sectorOptions}: {
-    filters: Filters;
-    setFilters: React.Dispatch<React.SetStateAction<Filters>>;
+    filters: ArticleFilters;
+    setFilters: React.Dispatch<React.SetStateAction<ArticleFilters>>;
     sectorOptions: string[]
 }) {
     return (
@@ -159,11 +210,11 @@ function FilterBar({filters, setFilters, sectorOptions}: {
                 {/* Sentiment */}
                 <div>
                     <label className="block text-xs text-gray-400 mb-2">Sentiment</label>
-                    <select
-                        value={filters.sentiment}
-                        onChange={(e) => setFilters((p) => ({...p, sentiment: e.target.value as Filters["sentiment"]}))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
-                    >
+                        <select
+                            value={filters.sentiment}
+                            onChange={(e) => setFilters((p) => ({...p, sentiment: e.target.value as ArticleFilters["sentiment"]}))}
+                            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
+                        >
                         <option value="all">All</option>
                         <option value="positive">Positive</option>
                         <option value="neutral">Neutral</option>

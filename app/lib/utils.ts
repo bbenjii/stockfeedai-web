@@ -1,34 +1,21 @@
 import {type ClassValue, clsx} from "clsx"
 import {twMerge} from "tailwind-merge"
+import {fetchJson} from "@/lib/api";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 export async function fetch_util(url="", method="GET", body=null, errorCallback=({error}:{error:any})=>{}){
-    const base_url = import.meta.env.VITE_API_BASE_URL;
-
-    let base = import.meta.env.VITE_API_BASE_URL;
-
-    if (!base) {
-        base = "https://stockfeedai-server-283151671335.us-central1.run.app/"
-        // throw new Error("VITE_API_BASE_URL is missing at build time");
-    }
-    const fetch_url = base_url + url;
-    const request = {
-        method: method,
-        body: body,
-    }
     try{
-        const response = await fetch(fetch_url, request);
-        if (!response.ok) throw new Error(`Response status: ${response.status}`);
-        return await response.json();
-        
+        return await fetchJson(url, {
+            method,
+            body,
+        });
     } catch(error:any){
-        errorCallback(error)
-        
+        errorCallback({error});
+        throw error;
     }
-    
 }
 
 

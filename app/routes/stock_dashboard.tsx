@@ -1,47 +1,58 @@
-import SymbolSearch from "@/components/symbol-search";
 import ArticleFeed from "@/components/article-feed";
-import {useEffect, useState} from "react";
 import StockChart from "@/components/stock-chart";
-import {fetch_util} from "@/lib/utils";
+import {
+    DEFAULT_ARTICLE_FILTERS,
+    getArticles,
+    getStockHistory,
+    type StockHistory,
+    type StockPeriod,
+} from "@/lib/api";
+import type {Route} from "./+types/stock_dashboard";
+import type {Article} from "@/components/article";
 
-export default function StockDashboard({params}: { params: { symbol: string } }) {
-    const [symbol, setSymbol] = useState(params.symbol)
-    const [tickerInfo, setTickerInfo] = useState<Record<string, any> | null>(null);
-    const [errorFetching, setErrorFetching] = useState(false);
+const DEFAULT_PERIOD: StockPeriod = "5d";
 
-    useEffect(() => {
-        setErrorFetching(false);
-        setSymbol(params.symbol)
-        getStockHistory(symbol).then(res => {
-            setTickerInfo(res.ticker)
-        });
-    }, [params]);
+export async function loader({params, request}: Route.LoaderArgs) {
+    const symbol = params.symbol;
 
-    async function getStockHistory(symbol: string) {
-        const params = new URLSearchParams();
-
-
-        const url = `/stock/${symbol}/history?`;
-        const result = await fetch_util(url, "GET", null,
-            (error) => {
-                setErrorFetching(true);
-            });
-        return result.history ?? [];
+    if (!symbol) {
+        throw new Response("Stock symbol not found", {status: 404});
     }
 
-    const [stockInfo, setStockInfo] = useState<Record<string, any> | null>(null);
+    const [history, articles] = await Promise.all([
+        getStockHistory(symbol, {
+            period: DEFAULT_PERIOD,
+            signal: request.signal,
+        }),
+        getArticles(DEFAULT_ARTICLE_FILTERS, {
+            symbol,
+            signal: request.signal,
+        }),
+    ]);
+
+    return {
+        symbol,
+        defaultPeriod: DEFAULT_PERIOD,
+        initialHistory: history,
+        initialArticles: articles,
+    };
+}
+
+export default function StockDashboard({loaderData}: Route.ComponentProps) {
     return (
         <div className={"relative overflow-hidden flex h-full flex-col max-w-300 mx-auto gap-5"}>
-
-            {/* Articles list */}
-            {
-                !errorFetching ? <div className={"grid grid-cols-1 overflow-x-hidden overflow-y-auto no-scrollbar"}>
-                    {<StockChart symbol={symbol}/>}
-                    <ArticleFeed symbol={symbol} show_filters={false}/>
-                </div> : 
-                    <div>Error fetching stock data</div>
-            }
-
+            <div className={"grid grid-cols-1 overflow-x-hidden overflow-y-auto no-scrollbar"}>
+                <StockChart
+                    symbol={loaderData.symbol}
+                    defaultPeriod={loaderData.defaultPeriod}
+                    initialHistory={loaderData.initialHistory as StockHistory}
+                />
+                <ArticleFeed
+                    symbol={loaderData.symbol}
+                    show_filters={false}
+                    initialArticles={loaderData.initialArticles as unknown as Article[]}
+                />
+            </div>
         </div>
     )
 }
